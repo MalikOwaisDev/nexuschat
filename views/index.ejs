@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Omegle Clone - Start Chatting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="shortcut icon" href="/fav.png" type="image/x-icon" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+            animation: {
+              "gradient-bg": "gradient-bg 15s ease infinite",
+              "fade-in-up": "fade-in-up 0.8s ease-out forwards",
+              "subtle-bob": "subtle-bob 4s ease-in-out infinite",
+              shimmer: "shimmer 2s infinite",
+            },
+            keyframes: {
+              "gradient-bg": {
+                "0%, 100%": { backgroundPosition: "0% 50%" },
+                "50%": { backgroundPosition: "100% 50%" },
+              },
+              "fade-in-up": {
+                "0%": { opacity: "0", transform: "translateY(20px)" },
+                "100%": { opacity: "1", transform: "translateY(0)" },
+              },
+              "subtle-bob": {
+                "0%, 100%": { transform: "translateY(-5px)" },
+                "50%": { transform: "translateY(5px)" },
+              },
+              shimmer: {
+                "0%": { transform: "translateX(-100%)" },
+                "100%": { transform: "translateX(100%)" },
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <script>
+      // This script is placed in the head to prevent a flash of unstyled content (FOUC).
+      // It checks the user's preference from localStorage or their system settings BEFORE the page renders.
+      if (
+        localStorage.getItem("theme") === "dark" ||
+        (!("theme" in localStorage) &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    </script>
+    <style>
+      .gradient-text {
+        background-image: linear-gradient(to right, #6366f1, #d946ef);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .dark .gradient-text {
+        background-image: linear-gradient(to right, #a5b4fc, #f0abfc);
+      }
+
+      .animated-gradient-bg {
+        background: linear-gradient(-45deg, #e0e7ff, #f3e8ff, #dbeafe, #e5e5f7);
+        background-size: 400% 400%;
+      }
+
+      .dark .animated-gradient-bg {
+        background: linear-gradient(-45deg, #1e1b4b, #312e81, #1e293b, #4338ca);
+        background-size: 400% 400%;
+      }
+
+      .card-glow {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card-glow::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(
+          circle at 50% 0,
+          rgba(99, 102, 241, 0.2),
+          transparent 50%
+        );
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        pointer-events: none;
+      }
+
+      .dark .card-glow::before {
+        background: radial-gradient(
+          circle at 50% 0,
+          rgba(165, 180, 252, 0.1),
+          transparent 60%
+        );
+      }
+
+      .card-glow:hover::before {
+        opacity: 1;
+      }
+    </style>
+  </head>
+
+  <body
+    class="font-sans text-gray-800 dark:text-gray-200 transition-colors duration-300 animated-gradient-bg animate-gradient-bg"
+  >
+    <div
+      class="absolute top-1/4 left-1/4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-subtle-bob hidden md:block"
+    ></div>
+    <div
+      class="absolute bottom-1/4 right-1/4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-subtle-bob animation-delay-2000 hidden md:block"
+    ></div>
+
+    <div class="absolute top-4 right-4 z-20">
+      <button
+        id="theme-toggle"
+        type="button"
+        class="text-gray-500 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-slate-700/60 focus:outline-none rounded-lg text-sm p-2.5 transition-colors"
+      >
+        <i
+          id="theme-icon"
+          class="ri-sun-line text-xl transition-transform duration-300"
+        ></i>
+        <span class="sr-only">Toggle theme</span>
+      </button>
+    </div>
+
+    <main
+      class="relative flex items-center justify-center min-h-screen p-4 z-10"
+    >
+      <div class="w-full max-w-md mx-auto">
+        <div
+          class="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl text-center card-glow animate-fade-in-up"
+        >
+          <div class="flex justify-center mb-6" style="animation-delay: 0.1s">
+            <div
+              class="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg animate-subtle-bob"
+            >
+              <i class="ri-chat-voice-line text-4xl text-white"></i>
+            </div>
+          </div>
+
+          <h1
+            class="text-4xl sm:text-5xl font-extrabold mb-2 opacity-0 animate-fade-in-up"
+            style="animation-delay: 0.2s"
+          >
+            <span class="gradient-text">Nexus Chat</span>
+          </h1>
+          <p
+            class="text-gray-600 dark:text-gray-400 mb-8 opacity-0 animate-fade-in-up"
+            style="animation-delay: 0.3s"
+          >
+            Leap into the void and connect with strangers worldwide.
+          </p>
+
+          <div
+            class="space-y-4 text-left my-8 opacity-0 animate-fade-in-up"
+            style="animation-delay: 0.4s"
+          >
+            <div
+              class="flex items-center gap-4 p-3 bg-white/50 dark:bg-slate-700/50 rounded-lg"
+            >
+              <div
+                class="w-8 h-8 flex-shrink-0 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center ring-2 ring-green-200 dark:ring-green-800"
+              >
+                <i
+                  class="ri-shield-check-line text-lg text-green-600 dark:text-green-400"
+                ></i>
+              </div>
+              <span class="font-medium text-gray-700 dark:text-gray-300"
+                >Anonymous & Secure</span
+              >
+            </div>
+            <div
+              class="flex items-center gap-4 p-3 bg-white/50 dark:bg-slate-700/50 rounded-lg"
+            >
+              <div
+                class="w-8 h-8 flex-shrink-0 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center ring-2 ring-blue-200 dark:ring-blue-800"
+              >
+                <i
+                  class="ri-vidicon-line text-lg text-blue-600 dark:text-blue-400"
+                ></i>
+              </div>
+              <span class="font-medium text-gray-700 dark:text-gray-300"
+                >High-Quality Video & Text</span
+              >
+            </div>
+            <div
+              class="flex items-center gap-4 p-3 bg-white/50 dark:bg-slate-700/50 rounded-lg"
+            >
+              <div
+                class="w-8 h-8 flex-shrink-0 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center ring-2 ring-purple-200 dark:ring-purple-800"
+              >
+                <i
+                  class="ri-global-line text-lg text-purple-600 dark:text-purple-400"
+                ></i>
+              </div>
+              <span class="font-medium text-gray-700 dark:text-gray-300"
+                >Connect Instantly</span
+              >
+            </div>
+          </div>
+
+          <a
+            href="/chat"
+            class="w-full inline-block bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-6 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-indigo-500/50 dark:hover:shadow-purple-500/50 relative overflow-hidden opacity-0 animate-fade-in-up"
+            style="animation-delay: 0.5s"
+          >
+            <span class="relative z-10">Start Chatting Now</span>
+            <span
+              class="absolute top-0 left-0 w-full h-full bg-white opacity-20 -translate-x-full animate-shimmer"
+            ></span>
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const themeToggleBtn = document.getElementById("theme-toggle");
+        const themeIcon = document.getElementById("theme-icon");
+        const htmlElement = document.documentElement;
+
+        // This function updates the button's icon based on the current theme (dark/light).
+        const updateThemeUI = () => {
+          const isDark = htmlElement.classList.contains("dark");
+          themeIcon.classList.toggle("ri-moon-line", !isDark); // Show moon if NOT dark
+          themeIcon.classList.toggle("ri-sun-line", isDark); // Show sun if IS dark
+          themeIcon.classList.toggle("rotate-180", isDark);
+        };
+
+        // Set the initial state of the icon when the page loads.
+        updateThemeUI();
+
+        // Add the click event listener to the toggle button.
+        themeToggleBtn.addEventListener("click", () => {
+          // Toggle the 'dark' class on the <html> element.
+          const isDark = htmlElement.classList.toggle("dark");
+
+          // Save the user's preference to localStorage.
+          if (isDark) {
+            localStorage.setItem("theme", "dark");
+          } else {
+            localStorage.setItem("theme", "light");
+          }
+
+          // Update the icon to reflect the new theme.
+          updateThemeUI();
+        });
+      });
+    </script>
+  </body>
+</html>

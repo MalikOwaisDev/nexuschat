@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Chat & Video Calling App</title>
+
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="shortcut icon" href="/fav.png" type="image/x-icon" />
+
+    <!-- Remixicon for icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"
+      rel="stylesheet"
+    />
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Configure Tailwind CSS
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+            colors: {
+              primary: {
+                50: "#eff6ff",
+                100: "#dbeafe",
+                200: "#bfdbfe",
+                300: "#93c5fd",
+                400: "#60a5fa",
+                500: "#3b82f6",
+                600: "#2563eb",
+                700: "#1d4ed8",
+                800: "#1e40af",
+                900: "#1e3a8a",
+                950: "#172554",
+              },
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      /* Custom scrollbar for a cleaner look */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.4);
+        border-radius: 20px;
+      }
+
+      /* Video player styling */
+      .video-player {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background-color: #0c0a09;
+        /* A deep, dark background */
+        border-radius: 0.5rem;
+      }
+
+      /* Added for new UI elements */
+      .glassmorphism {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .dark .glassmorphism {
+        background: rgba(15, 23, 42, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      /* Typing animation enhancement */
+      @keyframes bounce-sm {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+      .animate-bounce-sm {
+        animation: bounce-sm 1s infinite;
+      }
+    </style>
+  </head>
+
+  <body
+    class="flex flex-col h-screen font-sans bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100 transition-colors duration-500"
+  >
+    <!-- App Header -->
+    <header
+      class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl shadow-sm p-3 flex justify-between items-center border-b border-gray-200 dark:border-slate-700 sticky top-0 z-20 transition-all duration-300"
+    >
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-primary-600 rounded-lg text-white">
+          <i class="ri-wechat-line text-2xl"></i>
+        </div>
+        <h1 class="text-xl font-bold text-primary-600 dark:text-primary-400">
+          Live Chat
+        </h1>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-4">
+        <button
+          id="video-call-btn"
+          class="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-semibold hover:bg-green-600 transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+        >
+          <i class="ri-video-add-line text-lg"></i>
+          <span class="hidden sm:inline">Start Call</span>
+        </button>
+        <button
+          id="theme-toggle"
+          type="button"
+          class="text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700 focus:outline-none rounded-lg text-sm p-2.5 transition-colors"
+        >
+          <i
+            id="theme-icon"
+            class="ri-sun-line text-xl transition-transform duration-300"
+          ></i>
+          <span class="sr-only">Toggle theme</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Video Call UI -->
+    <div
+      id="videoblock"
+      class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+    >
+      <div id="videos" class="relative w-full h-full p-4">
+        <!-- Remote Video -->
+        <div
+          class="w-full h-full bg-slate-900 rounded-xl overflow-hidden shadow-2xl relative"
+        >
+          <video
+            class="video-player"
+            id="remoteVideo"
+            autoplay
+            playsinline
+          ></video>
+          <div
+            id="turned-off"
+            class="hidden absolute inset-0 flex items-center justify-center flex-col gap-4 bg-slate-900"
+          >
+            <i class="ri-camera-off-line text-6xl text-slate-500"></i>
+            <h2 class="text-slate-400 text-lg font-medium">
+              Their camera is off
+            </h2>
+          </div>
+        </div>
+        <!-- Local Video -->
+        <div
+          class="absolute w-36 h-52 sm:w-48 sm:h-64 bottom-28 right-8 border-4 border-slate-700/50 rounded-xl shadow-lg overflow-hidden transition-all duration-300"
+        >
+          <video
+            class="video-player"
+            id="localVideo"
+            autoplay
+            muted
+            playsinline
+          ></video>
+          <div
+            id="local-turned-off"
+            class="hidden absolute inset-0 bg-slate-800 flex items-center justify-center flex-col text-center p-2"
+          >
+            <i class="ri-camera-off-line text-4xl text-slate-400"></i>
+            <h2 class="text-slate-300 text-sm font-medium mt-2">
+              Your camera is off
+            </h2>
+          </div>
+        </div>
+      </div>
+      <!-- Call Controls -->
+      <div
+        id="controls"
+        class="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-4 p-3 glassmorphism rounded-full shadow-2xl"
+      >
+        <button
+          id="micButton"
+          data-active="true"
+          class="p-4 bg-green-500/80 hover:bg-green-500 rounded-full transition-all duration-300 text-white"
+        >
+          <i class="ri-mic-line text-2xl"></i>
+        </button>
+        <button
+          id="cameraButton"
+          data-active="true"
+          class="p-4 bg-blue-500/80 hover:bg-blue-500 rounded-full transition-all duration-300 text-white"
+        >
+          <i class="ri-camera-line text-2xl"></i>
+        </button>
+        <button
+          id="hangup"
+          class="p-4 bg-red-600 hover:bg-red-700 rounded-full transition-all duration-300 text-white transform hover:scale-110"
+        >
+          <i class="ri-phone-fill text-2xl inline-block rotate-[135deg]"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Incoming Call Modal -->
+    <div
+      id="incoming-call"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    >
+      <div
+        id="incoming-call-content"
+        class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl text-center w-full max-w-sm mx-auto transform transition-all scale-95 opacity-0"
+      >
+        <div
+          class="w-24 h-24 rounded-full bg-green-100 dark:bg-green-900/50 mx-auto flex items-center justify-center mb-6 ring-4 ring-green-200 dark:ring-green-800"
+        >
+          <i
+            class="ri-phone-receive-fill text-5xl text-green-500 dark:text-green-400"
+          ></i>
+        </div>
+        <h3 class="text-2xl font-bold mb-2">Incoming Video Call</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-8">
+          Someone is trying to connect with you.
+        </p>
+        <div class="flex justify-center gap-4">
+          <button
+            id="reject-call"
+            class="flex-1 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold py-3 px-4 rounded-xl hover:bg-red-200 dark:hover:bg-red-900 transition-all duration-300 transform hover:-translate-y-0.5"
+          >
+            Reject
+          </button>
+          <button
+            id="accept-call"
+            class="flex-1 bg-green-500 text-white font-semibold py-3 px-4 rounded-xl hover:bg-green-600 transition-all duration-300 transform hover:-translate-y-0.5 shadow-lg shadow-green-500/20"
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+      <style>
+        @keyframes fade-in-up {
+          0% {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.3s ease-out forwards;
+        }
+      </style>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div
+      id="custom-alert"
+      class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    >
+      <div
+        id="custom-alert-content"
+        class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl text-center w-full max-w-sm mx-auto transform transition-all scale-95 opacity-0"
+      >
+        <p id="custom-alert-message" class="text-lg mb-6"></p>
+        <button
+          id="custom-alert-ok"
+          class="bg-primary-600 text-white font-semibold py-2 px-8 rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <main
+      id="message-container"
+      class="relative flex-1 p-4 sm:p-6 overflow-y-auto"
+    >
+      <div
+        id="nobody-message"
+        class="h-full flex flex-col items-center justify-center text-center pt-8"
+      >
+        <i
+          class="ri-user-search-line text-6xl text-gray-400 dark:text-gray-500 mb-4"
+        ></i>
+        <p class="text-gray-500 dark:text-gray-400">
+          Waiting for someone to join the chat...
+        </p>
+      </div>
+      <div
+        id="typing-indicator"
+        class="hidden absolute bottom-4 sm:bottom-5 left-4 sm:left-6 flex items-center gap-2 p-2 rounded-lg shadow-md"
+      >
+        <div
+          class="w-2 h-2 rounded-full bg-primary-500 animate-bounce-sm [animation-delay:-0.3s]"
+        ></div>
+        <div
+          class="w-2 h-2 rounded-full bg-primary-500 animate-bounce-sm [animation-delay:-0.15s]"
+        ></div>
+        <div
+          class="w-2 h-2 rounded-full bg-primary-500 animate-bounce-sm"
+        ></div>
+        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1"
+          >Typing...</span
+        >
+      </div>
+    </main>
+
+    <!-- Message Input Form -->
+    <form
+      id="chatform"
+      class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-3 sm:p-4 border-t border-gray-200 dark:border-slate-700 flex items-center gap-3 sticky bottom-0 transition-all duration-300"
+    >
+      <input
+        type="text"
+        id="messagebox"
+        class="flex-1 bg-gray-100 dark:bg-slate-700 rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-300"
+        placeholder="Type a message..."
+        autocomplete="off"
+      />
+      <button
+        type="submit"
+        id="submit-btn"
+        class="submit bg-primary-600 text-white p-3 rounded-full hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-50 dark:focus:ring-offset-slate-900 focus:ring-primary-500"
+      >
+        <i class="ri-send-plane-2-fill text-2xl"></i>
+      </button>
+    </form>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        // --- DOM Element Selections ---
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById("theme-toggle");
+        const themeIcon = document.getElementById("theme-icon");
+        const chatForm = document.getElementById("chatform");
+        const messageBox = document.getElementById("messagebox");
+        const messageContainer = document.getElementById("message-container");
+        const submitBtn = document.getElementById("submit-btn");
+        const nobodyMessage = document.getElementById("nobody-message");
+        const typingIndicator = document.getElementById("typing-indicator");
+
+        const videoCallBtn = document.getElementById("video-call-btn");
+        const videoBlock = document.getElementById("videoblock");
+        const localVideo = document.getElementById("localVideo");
+        const remoteVideo = document.getElementById("remoteVideo");
+        const hangupBtn = document.getElementById("hangup");
+        const micBtn = document.getElementById("micButton");
+        const cameraBtn = document.getElementById("cameraButton");
+        const localTurnedOff = document.getElementById("local-turned-off");
+        const remoteTurnedOff = document.getElementById("turned-off");
+
+        const incomingCallModal = document.getElementById("incoming-call");
+        const incomingCallContent = document.getElementById(
+          "incoming-call-content"
+        );
+        const acceptCallBtn = document.getElementById("accept-call");
+        const rejectCallBtn = document.getElementById("reject-call");
+
+        const customAlert = document.getElementById("custom-alert");
+        const customAlertContent = document.getElementById(
+          "custom-alert-content"
+        );
+        const customAlertMessage = document.getElementById(
+          "custom-alert-message"
+        );
+        const customAlertOk = document.getElementById("custom-alert-ok");
+
+        const socket = io();
+        let room;
+        let typingTimer;
+        const typingDelay = 500;
+        let isTyping = false;
+
+        // --- UI Functions ---
+        const showAlert = (message) => {
+          customAlertMessage.textContent = message;
+          customAlert.classList.remove("hidden");
+          setTimeout(
+            () => customAlertContent.classList.add("animate-fade-in-up"),
+            10
+          );
+        };
+
+        customAlertOk.addEventListener("click", () => {
+          customAlertContent.classList.remove("animate-fade-in-up");
+          setTimeout(() => customAlert.classList.add("hidden"), 200);
+        });
+
+        // --- Theme Switcher Logic ---
+        const updateThemeUI = (isDark) => {
+          themeIcon.classList.toggle("ri-moon-line", !isDark);
+          themeIcon.classList.toggle("ri-sun-line", isDark);
+          themeIcon.classList.toggle("rotate-180", isDark);
+        };
+
+        const setTheme = (theme) => {
+          localStorage.setItem("theme", theme);
+          if (theme === "dark") {
+            htmlElement.classList.add("dark");
+            updateThemeUI(true);
+          } else {
+            htmlElement.classList.remove("dark");
+            updateThemeUI(false);
+          }
+        };
+
+        themeToggleBtn.addEventListener("click", () => {
+          const isDark = htmlElement.classList.contains("dark");
+          setTheme(isDark ? "light" : "dark");
+        });
+
+        const savedTheme = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)"
+        ).matches;
+        setTheme(savedTheme || (prefersDark ? "dark" : "light"));
+
+        // --- Chat & Core Application Logic ---
+        submitBtn.disabled = true; // Initially disable the button
+
+        const toggleSubmitButton = () => {
+          submitBtn.disabled = messageBox.value.trim() === "";
+        };
+
+        socket.emit("joinroom");
+
+        socket.on("joined", (roomname) => {
+          room = roomname;
+          if (nobodyMessage) {
+            nobodyMessage.classList.add("hidden");
+          }
+        });
+
+        messageBox.addEventListener("input", () => {
+          toggleSubmitButton();
+          if (!isTyping) {
+            isTyping = true;
+            socket.emit("typing", { room });
+          }
+          clearTimeout(typingTimer);
+          typingTimer = setTimeout(() => {
+            isTyping = false;
+            socket.emit("stoptyping", { room });
+          }, typingDelay);
+        });
+
+        socket.on("typing", () => {
+          typingIndicator.classList.remove("hidden");
+        });
+
+        socket.on("stoptyping", () => {
+          typingIndicator.classList.add("hidden");
+        });
+
+        const createMessageHTML = (message, type) => {
+          const alignment = type === "sent" ? "justify-end" : "justify-start";
+          const colors =
+            type === "sent"
+              ? "bg-primary-600 text-white"
+              : "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200";
+          return `
+                    <div class="flex my-2 ${alignment} animate-fade-in-up">
+                        <div class="${colors} p-3 rounded-2xl max-w-xs sm:max-w-md lg:max-w-lg shadow-md">
+                            <p class="break-words">${message}</p>
+                        </div>
+                    </div>`;
+        };
+
+        const appendMessage = (html) => {
+          // Insert before the typing indicator
+          const typingParent = typingIndicator.parentElement;
+          typingParent.insertAdjacentHTML("beforeend", html);
+          typingParent.scrollTop = typingParent.scrollHeight;
+        };
+
+        const attachMessage = (message) =>
+          appendMessage(createMessageHTML(message, "sent"));
+        const receiveMessage = (message) =>
+          appendMessage(createMessageHTML(message, "received"));
+
+        socket.on("message", (message) => {
+          receiveMessage(message);
+        });
+
+        chatForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const message = messageBox.value.trim();
+          if (message) {
+            socket.emit("message", { room: room, message: message });
+            attachMessage(message);
+            messageBox.value = "";
+            toggleSubmitButton();
+          }
+          if (isTyping) {
+            isTyping = false;
+            clearTimeout(typingTimer);
+            socket.emit("stoptyping", { room });
+          }
+        });
+
+        // --- WebRTC Video Call Logic ---
+        let localStream;
+        let remoteStream;
+        let peerConnection;
+        let inCall = false;
+
+        const rtcSettings = {
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        };
+
+        const initialize = async (isCaller = false) => {
+          socket.on("signalingMessage", handleSignalingMessage);
+
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: true,
+            });
+            localVideo.srcObject = localStream;
+            if (isCaller) {
+              initiateOffer();
+            }
+            inCall = true;
+          } catch (err) {
+            console.log("Failed to get media stream:", err);
+            showAlert("Could not access camera/mic. Please check permissions.");
+          }
+        };
+
+        const initiateOffer = async () => {
+          await createPeerConnection();
+          try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit("signalingMessage", {
+              room: room,
+              message: JSON.stringify({ type: "offer", offer: offer }),
+            });
+          } catch (err) {
+            console.error("Error creating offer:", err);
+          }
+        };
+
+        const createPeerConnection = async () => {
+          peerConnection = new RTCPeerConnection(rtcSettings);
+          remoteStream = new MediaStream();
+          remoteVideo.srcObject = remoteStream;
+
+          if (localStream) {
+            localStream.getTracks().forEach((track) => {
+              peerConnection.addTrack(track, localStream);
+            });
+          }
+
+          peerConnection.ontrack = (event) => {
+            event.streams[0].getTracks().forEach((track) => {
+              remoteStream.addTrack(track);
+            });
+          };
+
+          peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+              socket.emit("signalingMessage", {
+                room: room,
+                message: JSON.stringify({
+                  type: "candidate",
+                  candidate: event.candidate,
+                }),
+              });
+            }
+          };
+
+          peerConnection.onconnectionstatechange = () => {
+            if (peerConnection) {
+              console.log(
+                "Connection state changed",
+                peerConnection.connectionState
+              );
+              if (
+                peerConnection.connectionState === "disconnected" ||
+                peerConnection.connectionState === "failed" ||
+                peerConnection.connectionState === "closed"
+              ) {
+                resetCallState();
+              }
+            }
+          };
+        };
+
+        const handleSignalingMessage = async (message) => {
+          const { answer, offer, candidate, type } = JSON.parse(message);
+          if (type === "offer") await handleOffer(offer);
+          if (type === "answer") await handleAnswer(answer);
+          if (type === "candidate" && peerConnection) {
+            try {
+              await peerConnection.addIceCandidate(
+                new RTCIceCandidate(candidate)
+              );
+            } catch (err) {
+              console.log("Error adding ICE candidate:", err);
+            }
+          }
+          if (type === "hangup") resetCallState();
+          if (type === "videoOff") remoteTurnedOff.classList.remove("hidden");
+          if (type === "videoOn") remoteTurnedOff.classList.add("hidden");
+        };
+
+        const handleOffer = async (offer) => {
+          if (!inCall) {
+            await initialize();
+          }
+          await createPeerConnection();
+          try {
+            await peerConnection.setRemoteDescription(
+              new RTCSessionDescription(offer)
+            );
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit("signalingMessage", {
+              room: room,
+              message: JSON.stringify({ type: "answer", answer: answer }),
+            });
+            inCall = true;
+          } catch (err) {
+            console.log("Error handling offer:", err);
+          }
+        };
+
+        const handleAnswer = async (answer) => {
+          try {
+            if (peerConnection) {
+              await peerConnection.setRemoteDescription(
+                new RTCSessionDescription(answer)
+              );
+            }
+          } catch (err) {
+            console.log("Error handling answer:", err);
+          }
+        };
+
+        const resetCallState = () => {
+          if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+          }
+          if (localStream) {
+            localStream.getTracks().forEach((track) => track.stop());
+            localStream = null;
+          }
+          videoBlock.classList.add("hidden");
+          inCall = false;
+        };
+
+        videoCallBtn.addEventListener("click", () => {
+          if (room) {
+            socket.emit("startVideoCall", { room: room });
+          }
+        });
+
+        socket.on("incomingCall", () => {
+          incomingCallModal.classList.remove("hidden");
+          setTimeout(
+            () => incomingCallContent.classList.add("animate-fade-in-up"),
+            10
+          );
+        });
+
+        socket.on("callAccepted", () => {
+          initialize(true);
+          videoBlock.classList.remove("hidden");
+        });
+
+        acceptCallBtn.addEventListener("click", () => {
+          incomingCallContent.classList.remove("animate-fade-in-up");
+          setTimeout(() => incomingCallModal.classList.add("hidden"), 200);
+          videoBlock.classList.remove("hidden");
+          socket.emit("acceptCall", { room: room });
+          initialize();
+        });
+
+        rejectCallBtn.addEventListener("click", () => {
+          incomingCallContent.classList.remove("animate-fade-in-up");
+          setTimeout(() => incomingCallModal.classList.add("hidden"), 200);
+          socket.emit("rejectCall", { room: room });
+        });
+
+        socket.on("callRejected", () => {
+          showAlert("Call was rejected by the other user.");
+          resetCallState();
+        });
+
+        hangupBtn.addEventListener("click", () => {
+          socket.emit("signalingMessage", {
+            room: room,
+            message: JSON.stringify({ type: "hangup" }),
+          });
+          resetCallState();
+        });
+
+        micBtn.addEventListener("click", () => {
+          const isEnabled = micBtn.dataset.active === "true";
+          if (localStream) {
+            localStream.getAudioTracks()[0].enabled = !isEnabled;
+            micBtn.dataset.active = !isEnabled;
+            micBtn.classList.toggle("bg-green-500/80", !isEnabled);
+            micBtn.classList.toggle("bg-red-500/80", isEnabled);
+            micBtn.querySelector("i").className = !isEnabled
+              ? "ri-mic-line text-2xl"
+              : "ri-mic-off-line text-2xl";
+          }
+        });
+
+        cameraBtn.addEventListener("click", () => {
+          const isEnabled = cameraBtn.dataset.active === "true";
+          if (localStream) {
+            localStream.getVideoTracks().forEach((track) => {
+              track.enabled = !isEnabled;
+              cameraBtn.dataset.active = !isEnabled;
+              cameraBtn.classList.toggle("bg-blue-500/80", !isEnabled);
+              cameraBtn.classList.toggle("bg-red-500/80", isEnabled);
+              cameraBtn.querySelector("i").className = !isEnabled
+                ? "ri-camera-line text-2xl"
+                : "ri-camera-off-line text-2xl";
+              localTurnedOff.classList.toggle("hidden", !isEnabled);
+
+              socket.emit("signalingMessage", {
+                room: room,
+                message: JSON.stringify({
+                  type: isEnabled ? "videoOff" : "videoOn",
+                }),
+              });
+            });
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
