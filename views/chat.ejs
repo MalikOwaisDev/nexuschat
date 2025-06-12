@@ -393,6 +393,16 @@
         const typingDelay = 500;
         let isTyping = false;
 
+        // --- NEW: Function to clear all chat messages from the UI ---
+        const resetChatUI = () => {
+          // Select all message bubbles. Your bubbles are inside divs with class 'flex' and 'my-2'.
+          const messages = messageContainer.querySelectorAll(".flex.my-2");
+          messages.forEach((msg) => msg.remove());
+
+          // Also hide the typing indicator
+          typingIndicator.classList.add("hidden");
+        };
+
         // --- UI Functions ---
         const showAlert = (message) => {
           customAlertMessage.textContent = message;
@@ -408,13 +418,12 @@
           setTimeout(() => customAlert.classList.add("hidden"), 200);
         });
 
-        // --- Theme Switcher Logic ---
+        // --- Theme Switcher Logic (Unchanged) ---
         const updateThemeUI = (isDark) => {
           themeIcon.classList.toggle("ri-moon-line", !isDark);
           themeIcon.classList.toggle("ri-sun-line", isDark);
           themeIcon.classList.toggle("rotate-180", isDark);
         };
-
         const setTheme = (theme) => {
           localStorage.setItem("theme", theme);
           if (theme === "dark") {
@@ -425,12 +434,10 @@
             updateThemeUI(false);
           }
         };
-
         themeToggleBtn.addEventListener("click", () => {
           const isDark = htmlElement.classList.contains("dark");
           setTheme(isDark ? "light" : "dark");
         });
-
         const savedTheme = localStorage.getItem("theme");
         const prefersDark = window.matchMedia(
           "(prefers-color-scheme: dark)"
@@ -438,16 +445,18 @@
         setTheme(savedTheme || (prefersDark ? "dark" : "light"));
 
         // --- Chat & Core Application Logic ---
-        submitBtn.disabled = true; // Initially disable the button
-
+        submitBtn.disabled = true;
         const toggleSubmitButton = () => {
           submitBtn.disabled = messageBox.value.trim() === "";
         };
 
         socket.emit("joinroom");
 
+        // --- MODIFIED: `joined` event now cleans up UI first ---
         socket.on("joined", (roomname) => {
           room = roomname;
+          // Clear any old messages and show the chat interface
+          resetChatUI();
           if (nobodyMessage) {
             nobodyMessage.classList.add("hidden");
           }
@@ -469,7 +478,6 @@
         socket.on("typing", () => {
           typingIndicator.classList.remove("hidden");
         });
-
         socket.on("stoptyping", () => {
           typingIndicator.classList.add("hidden");
         });
@@ -480,16 +488,10 @@
             type === "sent"
               ? "bg-primary-600 text-white"
               : "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200";
-          return `
-                    <div class="flex my-2 ${alignment} animate-fade-in-up">
-                        <div class="${colors} p-3 rounded-2xl max-w-xs sm:max-w-md lg:max-w-lg shadow-md">
-                            <p class="break-words">${message}</p>
-                        </div>
-                    </div>`;
+          return `<div class="flex my-2 ${alignment} animate-fade-in-up"><div class="${colors} p-3 rounded-2xl max-w-xs sm:max-w-md lg:max-w-lg shadow-md"><p class="break-words">${message}</p></div></div>`;
         };
 
         const appendMessage = (html) => {
-          // Insert before the typing indicator
           const typingParent = typingIndicator.parentElement;
           typingParent.insertAdjacentHTML("beforeend", html);
           typingParent.scrollTop = typingParent.scrollHeight;
@@ -499,7 +501,6 @@
           appendMessage(createMessageHTML(message, "sent"));
         const receiveMessage = (message) =>
           appendMessage(createMessageHTML(message, "received"));
-
         socket.on("message", (message) => {
           receiveMessage(message);
         });
@@ -522,7 +523,6 @@
 
         // --- WebRTC Video Call Logic ---
         let localStream;
-        let remoteStream;
         let peerConnection;
         let inCall = false;
 
@@ -530,9 +530,36 @@
           iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         };
 
+        // --- MODIFIED: Renamed from resetCallState to a more comprehensive name ---
+        const resetToWaitingState = () => {
+          // 1. Reset the WebRTC call state
+          if (peerConnection) {
+            peerConnection.ontrack = null;
+            peerConnection.onicecandidate = null;
+            peerConnection.onconnectionstatechange = null;
+            peerConnection.close();
+            peerConnection = null;
+          }
+          if (localStream) {
+            localStream.getTracks().forEach((track) => track.stop());
+            localStream = null;
+          }
+          if (remoteVideo.srcObject) remoteVideo.srcObject = null;
+          if (localVideo.srcObject) localVideo.srcObject = null;
+
+          // 2. Reset the video call UI
+          videoBlock.classList.add("hidden");
+          inCall = false;
+
+          // 3. Reset the chat UI to its initial state
+          resetChatUI();
+
+          // 4. Show the "waiting for partner" message
+          nobodyMessage.classList.remove("hidden");
+        };
+
         const initialize = async (isCaller = false) => {
           socket.on("signalingMessage", handleSignalingMessage);
-
           try {
             localStream = await navigator.mediaDevices.getUserMedia({
               audio: true,
@@ -544,9 +571,52 @@
             }
             inCall = true;
           } catch (err) {
-            console.log("Failed to get media stream:", err);
+            console.error("Failed to get media stream:", err);
             showAlert("Could not access camera/mic. Please check permissions.");
+            resetToWaitingState();
           }
+        };
+        const createPeerConnection = async () => {
+          peerConnection = new RTCPeerConnection(rtcSettings);
+          const remoteStream = new MediaStream();
+          remoteVideo.srcObject = remoteStream;
+
+          if (localStream) {
+            localStream
+              .getTracks()
+              .forEach((track) => peerConnection.addTrack(track, localStream));
+          }
+          peerConnection.ontrack = (event) => {
+            event.streams[0]
+              .getTracks()
+              .forEach((track) => remoteStream.addTrack(track));
+          };
+          peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+              socket.emit("signalingMessage", {
+                room: room,
+                message: JSON.stringify({
+                  type: "candidate",
+                  candidate: event.candidate,
+                }),
+              });
+            }
+          };
+          peerConnection.onconnectionstatechange = () => {
+            if (peerConnection) {
+              console.log(
+                "Connection state changed:",
+                peerConnection.connectionState
+              );
+              if (
+                ["disconnected", "failed", "closed"].includes(
+                  peerConnection.connectionState
+                )
+              ) {
+                resetToWaitingState();
+              }
+            }
+          };
         };
 
         const initiateOffer = async () => {
@@ -563,74 +633,48 @@
           }
         };
 
-        const createPeerConnection = async () => {
-          peerConnection = new RTCPeerConnection(rtcSettings);
-          remoteStream = new MediaStream();
-          remoteVideo.srcObject = remoteStream;
+        socket.on("disconnect", () => {
+          showAlert("Connection to server lost. Please refresh the page.");
+          resetToWaitingState();
+        });
 
-          if (localStream) {
-            localStream.getTracks().forEach((track) => {
-              peerConnection.addTrack(track, localStream);
-            });
-          }
+        // --- MODIFIED: This is now much cleaner ---
+        socket.on("partnerDisconnected", () => {
+          showAlert("Your partner has disconnected. Waiting for a new one...");
 
-          peerConnection.ontrack = (event) => {
-            event.streams[0].getTracks().forEach((track) => {
-              remoteStream.addTrack(track);
-            });
-          };
+          // Remove the old WebRTC listener to prevent conflicts with the next partner.
+          socket.off("signalingMessage", handleSignalingMessage);
 
-          peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-              socket.emit("signalingMessage", {
-                room: room,
-                message: JSON.stringify({
-                  type: "candidate",
-                  candidate: event.candidate,
-                }),
-              });
-            }
-          };
+          // Perform a full UI reset.
+          resetToWaitingState();
 
-          peerConnection.onconnectionstatechange = () => {
-            if (peerConnection) {
-              console.log(
-                "Connection state changed",
-                peerConnection.connectionState
-              );
-              if (
-                peerConnection.connectionState === "disconnected" ||
-                peerConnection.connectionState === "failed" ||
-                peerConnection.connectionState === "closed"
-              ) {
-                resetCallState();
-              }
-            }
-          };
-        };
+          // The client now waits for the server to provide a new partner.
+          // No more `socket.emit("joinroom")` here.
+        });
 
         const handleSignalingMessage = async (message) => {
           const { answer, offer, candidate, type } = JSON.parse(message);
-          if (type === "offer") await handleOffer(offer);
-          if (type === "answer") await handleAnswer(answer);
-          if (type === "candidate" && peerConnection) {
-            try {
+          if (!peerConnection && (type === "answer" || type === "candidate"))
+            return;
+          try {
+            if (type === "offer") await handleOffer(offer);
+            else if (type === "answer") await handleAnswer(answer);
+            else if (type === "candidate")
               await peerConnection.addIceCandidate(
                 new RTCIceCandidate(candidate)
               );
-            } catch (err) {
-              console.log("Error adding ICE candidate:", err);
-            }
+            else if (type === "hangup") resetToWaitingState();
+            else if (type === "videoOff")
+              remoteTurnedOff.classList.remove("hidden");
+            else if (type === "videoOn")
+              remoteTurnedOff.classList.add("hidden");
+          } catch (err) {
+            console.error("Error handling signaling message:", type, err);
           }
-          if (type === "hangup") resetCallState();
-          if (type === "videoOff") remoteTurnedOff.classList.remove("hidden");
-          if (type === "videoOn") remoteTurnedOff.classList.add("hidden");
         };
-
         const handleOffer = async (offer) => {
-          if (!inCall) {
-            await initialize();
-          }
+          if (!inCall) await initialize(false);
+          if (!localStream) return;
           await createPeerConnection();
           try {
             await peerConnection.setRemoteDescription(
@@ -644,41 +688,24 @@
             });
             inCall = true;
           } catch (err) {
-            console.log("Error handling offer:", err);
+            console.error("Error handling offer:", err);
           }
         };
-
         const handleAnswer = async (answer) => {
           try {
-            if (peerConnection) {
-              await peerConnection.setRemoteDescription(
-                new RTCSessionDescription(answer)
-              );
-            }
+            if (peerConnection.signalingState !== "have-local-offer") return;
+            await peerConnection.setRemoteDescription(
+              new RTCSessionDescription(answer)
+            );
           } catch (err) {
-            console.log("Error handling answer:", err);
+            console.error("Error handling answer:", err);
           }
         };
 
-        const resetCallState = () => {
-          if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-          }
-          if (localStream) {
-            localStream.getTracks().forEach((track) => track.stop());
-            localStream = null;
-          }
-          videoBlock.classList.add("hidden");
-          inCall = false;
-        };
-
+        // --- UI Event Listeners ---
         videoCallBtn.addEventListener("click", () => {
-          if (room) {
-            socket.emit("startVideoCall", { room: room });
-          }
+          if (room) socket.emit("startVideoCall", { room: room });
         });
-
         socket.on("incomingCall", () => {
           incomingCallModal.classList.remove("hidden");
           setTimeout(
@@ -686,73 +713,65 @@
             10
           );
         });
-
         socket.on("callAccepted", () => {
-          initialize(true);
           videoBlock.classList.remove("hidden");
+          initialize(true);
         });
-
         acceptCallBtn.addEventListener("click", () => {
           incomingCallContent.classList.remove("animate-fade-in-up");
           setTimeout(() => incomingCallModal.classList.add("hidden"), 200);
           videoBlock.classList.remove("hidden");
           socket.emit("acceptCall", { room: room });
-          initialize();
+          initialize(false);
         });
-
         rejectCallBtn.addEventListener("click", () => {
           incomingCallContent.classList.remove("animate-fade-in-up");
           setTimeout(() => incomingCallModal.classList.add("hidden"), 200);
           socket.emit("rejectCall", { room: room });
         });
-
         socket.on("callRejected", () => {
           showAlert("Call was rejected by the other user.");
-          resetCallState();
+          resetToWaitingState();
         });
-
         hangupBtn.addEventListener("click", () => {
           socket.emit("signalingMessage", {
             room: room,
             message: JSON.stringify({ type: "hangup" }),
           });
-          resetCallState();
+          resetToWaitingState();
         });
 
         micBtn.addEventListener("click", () => {
-          const isEnabled = micBtn.dataset.active === "true";
-          if (localStream) {
-            localStream.getAudioTracks()[0].enabled = !isEnabled;
-            micBtn.dataset.active = !isEnabled;
-            micBtn.classList.toggle("bg-green-500/80", !isEnabled);
-            micBtn.classList.toggle("bg-red-500/80", isEnabled);
-            micBtn.querySelector("i").className = !isEnabled
-              ? "ri-mic-line text-2xl"
-              : "ri-mic-off-line text-2xl";
-          }
+          if (!localStream) return;
+          const audioTrack = localStream.getAudioTracks()[0];
+          if (!audioTrack) return;
+          const isEnabled = audioTrack.enabled;
+          audioTrack.enabled = !isEnabled;
+          micBtn.classList.toggle("bg-green-500/80", !isEnabled);
+          micBtn.classList.toggle("bg-red-500/80", isEnabled);
+          micBtn.querySelector("i").className = !isEnabled
+            ? "ri-mic-line text-2xl"
+            : "ri-mic-off-line text-2xl";
         });
 
         cameraBtn.addEventListener("click", () => {
-          const isEnabled = cameraBtn.dataset.active === "true";
-          if (localStream) {
-            localStream.getVideoTracks().forEach((track) => {
-              track.enabled = !isEnabled;
-              cameraBtn.dataset.active = !isEnabled;
-              cameraBtn.classList.toggle("bg-blue-500/80", !isEnabled);
-              cameraBtn.classList.toggle("bg-red-500/80", isEnabled);
-              cameraBtn.querySelector("i").className = !isEnabled
-                ? "ri-camera-line text-2xl"
-                : "ri-camera-off-line text-2xl";
-              localTurnedOff.classList.toggle("hidden", !isEnabled);
-
-              socket.emit("signalingMessage", {
-                room: room,
-                message: JSON.stringify({
-                  type: isEnabled ? "videoOff" : "videoOn",
-                }),
-              });
-            });
-          }
+          if (!localStream) return;
+          const videoTrack = localStream.getVideoTracks()[0];
+          if (!videoTrack) return;
+          const isEnabled = videoTrack.enabled;
+          videoTrack.enabled = !isEnabled;
+          cameraBtn.classList.toggle("bg-blue-500/80", !isEnabled);
+          cameraBtn.classList.toggle("bg-red-500/80", isEnabled);
+          cameraBtn.querySelector("i").className = !isEnabled
+            ? "ri-camera-line text-2xl"
+            : "ri-camera-off-line text-2xl";
+          localTurnedOff.classList.toggle("hidden", !isEnabled);
+          socket.emit("signalingMessage", {
+            room: room,
+            message: JSON.stringify({
+              type: isEnabled ? "videoOff" : "videoOn",
+            }),
+          });
         });
       });
     </script>
