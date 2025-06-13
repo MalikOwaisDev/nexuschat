@@ -40,12 +40,10 @@ This project is built entirely with front-end technologies and a Node.js backend
 
 ## 🖼️ Screenshots
 
-*(Here you can add screenshots of your application)*
-
-**Landing Page (Light/Dark Mode)**
+**Landing Page**
 ![Landing Page](./public/main.png)
 
-**Chat Interface (Text/Video)**
+**Chat Interface**
 ![Chat Interface](./public/chat.png)
 
 ---
